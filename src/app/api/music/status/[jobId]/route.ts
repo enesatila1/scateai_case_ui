@@ -2,23 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export async function POST(request: NextRequest) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ jobId: string }> }
+) {
   try {
-    const formData = await request.formData();
+    const { jobId } = await params;
 
-    const response = await fetch(`${API_BASE_URL}/music/generate-cover`, {
-      method: 'POST',
-      body: formData,
+    const response = await fetch(`${API_BASE_URL}/music/status/${jobId}`, {
+      method: 'GET',
     });
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: 'Failed to submit cover generation job' },
+        { error: 'Job not found' },
         { status: response.status }
       );
     }
 
-    // Backend now returns { job_id: string, status: string }
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
