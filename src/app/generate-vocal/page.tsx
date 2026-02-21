@@ -1,7 +1,14 @@
 'use client';
 
-import { useState, useRef, FormEvent, ChangeEvent } from 'react';
+import { useState, useRef, FormEvent, ChangeEvent, useEffect } from 'react';
 import Link from 'next/link';
+
+interface JobStatus {
+  job_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: string;
+  error?: string;
+}
 
 export default function GenerateVocalPage() {
   const [songFile, setSongFile] = useState<File | null>(null);
@@ -10,6 +17,10 @@ export default function GenerateVocalPage() {
   const [error, setError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+
+  // Job queue states
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
 
   const songInputRef = useRef<HTMLInputElement>(null);
   const voiceInputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +61,8 @@ export default function GenerateVocalPage() {
     setError(null);
     setAudioUrl(null);
     setAudioBlob(null);
+    setJobId(null);
+    setJobStatus(null);
 
     try {
       const formData = new FormData();
@@ -65,15 +78,63 @@ export default function GenerateVocalPage() {
         throw new Error(`API error: ${response.status}`);
       }
 
+      const data = await response.json();
+      setJobId(data.job_id);
+      setJobStatus({ job_id: data.job_id, status: 'pending' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit job');
+      setLoading(false);
+    }
+  };
+
+  // Poll for job status
+  useEffect(() => {
+    if (!jobId || !loading) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/music/status/${jobId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch status');
+        }
+
+        const status: JobStatus = await response.json();
+        setJobStatus(status);
+
+        // Job completed
+        if (status.status === 'completed') {
+          await fetchResult(jobId);
+          setLoading(false);
+          clearInterval(interval);
+        }
+        // Job failed
+        else if (status.status === 'failed') {
+          setError(status.error || 'Job failed');
+          setLoading(false);
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error('Status poll error:', err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [jobId, loading]);
+
+  const fetchResult = async (jId: string) => {
+    try {
+      const response = await fetch(`/api/music/result/${jId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch result');
+      }
+
       const blob = await response.blob();
       setAudioBlob(blob);
 
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate cover');
-    } finally {
-      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Failed to fetch result');
     }
   };
 
@@ -135,13 +196,13 @@ export default function GenerateVocalPage() {
                     type="file"
                     accept="audio/*"
                     onChange={handleSongFileChange}
-                    disabled={loading}
+                    disabled={loading || jobId !== null}
                     className="hidden"
                   />
                   <button
                     type="button"
                     onClick={() => songInputRef.current?.click()}
-                    disabled={loading}
+                    disabled={loading || jobId !== null}
                     className="w-full bg-slate-700 hover:bg-slate-600 disabled:bg-slate-700 border-2 border-dashed border-slate-600 rounded px-4 py-6 text-gray-300 transition-colors cursor-pointer flex flex-col items-center gap-2"
                   >
                     <span className="text-2xl">🎵</span>
@@ -171,13 +232,13 @@ export default function GenerateVocalPage() {
                     type="file"
                     accept="audio/*"
                     onChange={handleVoiceFileChange}
-                    disabled={loading}
+                    disabled={loading || jobId !== null}
                     className="hidden"
                   />
                   <button
                     type="button"
                     onClick={() => voiceInputRef.current?.click()}
-                    disabled={loading}
+                    disabled={loading || jobId !== null}
                     className="w-full bg-slate-700 hover:bg-slate-600 disabled:bg-slate-700 border-2 border-dashed border-slate-600 rounded px-4 py-6 text-gray-300 transition-colors cursor-pointer flex flex-col items-center gap-2"
                   >
                     <span className="text-2xl">🎤</span>
@@ -207,13 +268,17 @@ export default function GenerateVocalPage() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || !songFile || !voiceFile}
+                disabled={loading || !songFile || !voiceFile || jobId !== null}
                 className="w-full bg-linear-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
               >
-                {loading ? (
+                {jobId ? (
+                  <>
+                    Processing... Check status on the right
+                  </>
+                ) : loading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Generating...
+                    Submitting...
                   </>
                 ) : (
                   <>
@@ -253,12 +318,43 @@ export default function GenerateVocalPage() {
                   ✓ Cover generated successfully!
                 </div>
               </div>
+            ) : loading && jobStatus ? (
+              <div className="space-y-4">
+                {/* Progress Container */}
+                <div className="bg-slate-700/50 rounded-lg p-6 space-y-4">
+                  {/* Spinner */}
+                  <div className="flex justify-center mb-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="text-center">
+                    <p className="text-sm text-gray-400 uppercase tracking-wider mb-2">
+                      {jobStatus.status === 'pending' ? '⏳ Queued' : '⚙️ Processing'}
+                    </p>
+                    <p className="text-gray-300 font-medium">
+                      {jobStatus.progress || 'Starting processing...'}
+                    </p>
+                  </div>
+
+                  {/* Job ID */}
+                  <div className="bg-slate-800/50 rounded px-3 py-2">
+                    <p className="text-xs text-gray-500">Job ID</p>
+                    <p className="text-xs text-gray-400 font-mono break-all">{jobId}</p>
+                  </div>
+
+                  {/* Estimated Time Info */}
+                  <div className="bg-slate-800/50 rounded px-3 py-2 border border-slate-600">
+                    <p className="text-xs text-gray-400">
+                      ⏱️ This may take a few minutes. Please don't close this page.
+                    </p>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-gray-500 border-2 border-dashed border-slate-600 rounded-lg">
                 <div className="text-4xl mb-3">🎤</div>
-                <p className="text-center">
-                  {loading ? 'Generating your cover...' : 'Generated cover will appear here'}
-                </p>
+                <p className="text-center">Generated cover will appear here</p>
               </div>
             )}
           </div>
