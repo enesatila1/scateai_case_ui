@@ -66,122 +66,68 @@ export default function GenerateSongPage() {
   };
 
   return (
-    <main className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      {/* Back Button - Fixed Top Left */}
-      <Link href="/" className="inline-block mb-8 text-gray-400 hover:text-white transition-colors">
+    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8">
+      <Link href="/" className="text-gray-400 hover:text-white mb-12 absolute top-8 left-8">
         ← Back
       </Link>
 
-      <div className="min-h-[calc(100vh-100px)] flex items-center justify-center">
-        <div className="max-w-2xl w-full">
-          {/* Header */}
-          <div className="flex items-center justify-center mb-12">
-            <h1 className="text-4xl font-bold bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-              Generate Song
-            </h1>
+      <div className="max-w-xl w-full">
+        <h1 className="text-3xl font-bold mb-12">Generate Song</h1>
+
+        {audioUrl ? (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded">
+              <audio src={audioUrl} controls className="w-full" />
+            </div>
+            <button
+              onClick={handleDownload}
+              className="w-full bg-white text-black font-semibold py-3 rounded hover:bg-gray-200 transition"
+            >
+              Download
+            </button>
           </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Input Form */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-            <form onSubmit={handleGenerateSong} className="space-y-4">
-              {/* Prompt */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                  Prompt *
-                </label>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="e.g., An energetic pop song about summer love with upbeat melody"
-                  className="w-full bg-slate-700 border border-slate-600 rounded px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
-                  rows={4}
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Lyrics */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                  Lyrics (Optional)
-                </label>
-                <textarea
-                  value={lyrics}
-                  onChange={(e) => setLyrics(e.target.value)}
-                  placeholder="Enter lyrics for the song (optional)"
-                  className="w-full bg-slate-700 border border-slate-600 rounded px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
-                  rows={6}
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-900/50 border border-red-700 rounded px-4 py-3 text-red-200 text-sm">
-                  {error}
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <button
-                type="submit"
+        ) : loading ? (
+          <div className="space-y-6 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto"></div>
+            <p className="text-lg">Generating...</p>
+          </div>
+        ) : (
+          <form onSubmit={handleGenerateSong} className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold mb-3">Prompt</label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Describe the song you want..."
+                className="w-full bg-white text-black border-none rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gray-400 resize-none"
+                rows={4}
                 disabled={loading}
-                className="w-full bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    🎵 Generate Song
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
+              />
+            </div>
 
-          {/* Output Area */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-200 mb-4">Generated Output</h2>
+            <div>
+              <label className="block text-sm font-semibold mb-3">Lyrics (Optional)</label>
+              <textarea
+                value={lyrics}
+                onChange={(e) => setLyrics(e.target.value)}
+                placeholder="Enter lyrics (optional)..."
+                className="w-full bg-white text-black border-none rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gray-400 resize-none"
+                rows={6}
+                disabled={loading}
+              />
+            </div>
 
-            {audioUrl ? (
-              <div className="space-y-4">
-                {/* Audio Player */}
-                <div className="bg-slate-700/50 rounded-lg p-4">
-                  <p className="text-sm text-gray-400 mb-3">Audio Preview</p>
-                  <audio
-                    src={audioUrl}
-                    controls
-                    className="w-full"
-                  />
-                </div>
+            {error && <p className="text-red-400 text-sm">{error}</p>}
 
-                {/* Download Button */}
-                <button
-                  onClick={handleDownload}
-                  className="w-full bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-2 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  📥 Download MP3
-                </button>
-
-                {/* Success Message */}
-                <div className="bg-green-900/50 border border-green-700 rounded px-4 py-3 text-green-200 text-sm">
-                  ✓ Song generated successfully!
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-500 border-2 border-dashed border-slate-600 rounded-lg">
-                <div className="text-4xl mb-3">🎵</div>
-                <p className="text-center">
-                  {loading ? 'Generating your song...' : 'Generated song will appear here'}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-        </div>
+            <button
+              type="submit"
+              disabled={loading || !prompt.trim()}
+              className="w-full bg-white text-black font-semibold py-3 rounded hover:bg-gray-200 disabled:bg-gray-400 transition"
+            >
+              {loading ? 'Generating...' : 'Generate'}
+            </button>
+          </form>
+        )}
       </div>
     </main>
   );
